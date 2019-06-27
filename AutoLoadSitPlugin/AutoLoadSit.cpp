@@ -106,7 +106,7 @@ float RunOnceAtStartup(float, float, int, void *) {
 
 	if (minAltitude <= 500)
 	{
-		XPLMLoadDataFile(xplm_DataFile_Situation, "Output/situations/good.sit");
+		XPLMLoadDataFile(xplm_DataFile_Situation, "Output//situations//good.sit");
 		XPLMCommandOnce(CommandRef);
 	}
 
@@ -123,7 +123,7 @@ float RunEveryFrame(float, float, int, void *) {
 
 	if (minAltitude <= 100)
 	{
-		XPLMLoadDataFile(xplm_DataFile_Situation, "Output/situations/good.sit");
+		XPLMLoadDataFile(xplm_DataFile_Situation, "Output//situations//good.sit");
 		XPLMCommandOnce(CommandRef);
 	}
 
