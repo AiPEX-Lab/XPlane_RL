@@ -6,6 +6,16 @@
 #include "XPLMProcessing.h"
 #include "XPLMPlugin.h"
 
+#if IBM
+#include <windows.h>
+#endif
+#if LIN
+#include <GL/gl.h>
+#elif __GNUC__
+#include <OpenGL/gl.h>
+#else
+#include <GL/gl.h>
+#endif
 
 /*FLCB (Flight loop callbacks)*/
 float RunOnceAtStartup(float, float, int, void *);
