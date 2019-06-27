@@ -106,7 +106,7 @@ float RunOnceAtStartup(float, float, int, void *) {
 
 	if (minAltitude <= 500)
 	{
-		XPLMLoadDataFile(xplm_DataFile_Situation, "Output\\situations\\inAir2.sit");
+		XPLMLoadDataFile(xplm_DataFile_Situation, "Output\\situations\\good.sit");
 		XPLMCommandOnce(CommandRef);
 	}
 
@@ -121,9 +121,9 @@ float RunEveryFrame(float, float, int, void *) {
 
 	float minAltitude = XPLMGetDataf(DataName);
 
-	if (minAltitude <= 500)
+	if (minAltitude <= 100)
 	{
-		XPLMLoadDataFile(xplm_DataFile_Situation, "Output\\situations\\inAir2.sit");
+		XPLMLoadDataFile(xplm_DataFile_Situation, "Output\\situations\\good.sit");
 		XPLMCommandOnce(CommandRef);
 	}
 
