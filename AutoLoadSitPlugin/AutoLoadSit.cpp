@@ -1,4 +1,8 @@
 #define XPLM200
+#define XPLM210
+#define XPLM300
+#define XPLM301
+
 
 #include <stdio.h>
 #include "XPLMUtilities.h"
@@ -36,9 +40,9 @@ XPLMCommandRef CommandRef = XPLMFindCommand("sim/view/chase");
  */
 PLUGIN_API int XPluginStart(char * outName, char * outSig, char * outDesc)
 {
-	strcpy(outName, "AutoLoadSit");
-	strcpy(outSig, "xplanesdk.plugin.AutoLoadSit");
-	strcpy(outDesc, "A plugin that automatically loads a situation file when plane falls under a certain altitude.");
+	//strcpy(outName, "AutoLoadSit");
+	//strcpy(outSig, "xplanesdk.plugin.AutoLoadSit");
+	//strcpy(outDesc, "A plugin that automatically loads a situation file when plane falls under a certain altitude.");
 
 	/* Calls the loop callback*/
 	XPLMRegisterFlightLoopCallback(RunOnceAtStartup, -1.0, NULL);
@@ -114,9 +118,9 @@ float RunOnceAtStartup(float, float, int, void *) {
 
 	float minAltitude = XPLMGetDataf(DataName);
 
-	if (minAltitude <= 500)
+	if (minAltitude <= 2800)
 	{
-		XPLMLoadDataFile(xplm_DataFile_Situation, "Output\\situations\\InAir2.sit");
+		XPLMLoadDataFile(xplm_DataFile_Situation, "Output\\situations\\keepHeading.sit");
 		XPLMCommandOnce(CommandRef);
 	}
 
@@ -131,9 +135,9 @@ float RunEveryFrame(float, float, int, void *) {
 
 	float minAltitude = XPLMGetDataf(DataName);
 
-	if (minAltitude <= 100)
+	if (minAltitude <= 2800)
 	{
-		XPLMLoadDataFile(xplm_DataFile_Situation, "Output\\situations\\InAir2.sit");
+		XPLMLoadDataFile(xplm_DataFile_Situation, "Output\\situations\\keepHeading.sit");
 		XPLMCommandOnce(CommandRef);
 	}
 
