@@ -1,0 +1,10 @@
+This folder contains the SDK Library, the C++ code, and the Makefile required to build, compile, and link the plugin for autoloading a situation file when the plane crashes and it exceeds a maximum g-force for the Linux operating system.
+
+To make any changes to the maximum g-force, or any changes overall to the code, please follow these steps.
+
+1.) Open up the "AutoLoadSitCrashLin.cpp" in a text editor and make any changes
+2.) Save the file
+3.) Open up the terminal and navigate to the "AutoLoadSitCrashLinux" directory
+4.) (Optional but Recommended) Delete the build directory, as it contains the plugin from the previous build
+5.) Type "make" into the command line
+6.) A new "build" directory should be created. The plugin file (.xpl) should be in there under the name "AutoLoadSitCrashLin.xpl"
