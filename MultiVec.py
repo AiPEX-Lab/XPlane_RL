@@ -62,8 +62,8 @@ if __name__ == '__main__':
      #tensorboard --logdir 
 
 
-
-    num_cpu = 1
+    n_steps = 0
+    num_cpu = 4
 
     env = SubprocVecEnv([make_env(env_id, 49009 + i, i) for i in range(num_cpu)])  # The algorithms require a vectorized environment to run
    
@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     ##### Final Save 
 
-    model.save("landing_Becn1")
+    model.save("PPO2_keepHeading1")
     #PPO2('MlpPolicy', env, verbose=1).learn(1000)
    
 
