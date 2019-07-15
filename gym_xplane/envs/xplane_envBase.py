@@ -118,7 +118,7 @@ class XplaneEnv(gym.Env):
             ########################################################
             # **********************************************reward parametera**********************
             self.headingReward = 213.5 # the heading target for keepHeadingAW1 (headingTrue)
-            self.minimumAltitude= 0 # Target Altitude (Meters) keepHeadings
+            self.minimumAltitude= 1524 # Target Altitude (Meters) keepHeadings
             minimumRuntime = 210.50 # Target runtime ????
             # ****************************************************************************************
 
@@ -222,7 +222,7 @@ class XplaneEnv(gym.Env):
         #rint("pause estimate", q-j)
         print("Reward:", self.reward, "delta_altitude:", self.ControlParameters.state14['delta_altitude'], "delta_heading:", self.ControlParameters.state14['delta_heading'])
         sleep(0.07)
-        return  state14,reward,self.ControlParameters.flag,{} #self._get_info() #self.ControlParameters.state14
+        return  state14,self.reward,self.ControlParameters.flag,{} #self._get_info() #self.ControlParameters.state14
   
 
     def _get_info(self):
