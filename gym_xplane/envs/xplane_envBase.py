@@ -47,7 +47,7 @@ class XplaneEnv(gym.Env):
         '''
         ### Altitude Reward 
 
-        reward_altitude = np.tanh(1-((2*self.ControlParameters.state14['delta_altitude'])/487.68))
+        reward_altitude = np.tanh(1-((2*self.ControlParameters.state14['delta_altitude'])/1524))
         
         ### Heading Reward
 
@@ -75,7 +75,7 @@ class XplaneEnv(gym.Env):
         self.test=False # if true, only test paramters returned. for Model tesing 
         self.ControlParameters.flag = False # for synchronisation of training
         checkStep = 0
-        reward = 0.
+        self.reward = 0.
         actions_ = []
         
         j=0  # getting simulaion timing measurement
@@ -173,7 +173,7 @@ class XplaneEnv(gym.Env):
             #target_state = [abs(XplaneEnv.CLIENT.getDREFs(self.ControlParameters.on_ground)[0][0])),self.minimumAltitude,0.25]  # taget situation -heading, altitude, and distance 
             #target_state = XplaneEnv.CLIENT.getDREFs(self.ControlParameters.on_ground)[0][0]
             #xplane_state = [ abs(state[5]),state[2],rewardVector]  # present situation -heading, altitude, and distance 
-            self.reward = self.rewardCalcul(target_state,xplane_state)
+            self.reward = self.rewardCalcul()
             self.ControlParameters.episodeReward += self.reward
             self.ControlParameters.episodeStep += 1
             ### Check Point implementation ###
@@ -185,7 +185,7 @@ class XplaneEnv(gym.Env):
             # detect crash and penalize the agênt
             # if crash add -3 otherwose reward ramin same
 
-            if self.ControlParameters.state14['altitude'] <= 400:
+            if self.ControlParameters.state14['altitude'] <= 800:
                 self.ControlParameters.flag = True # end of episode flag
                 self.ControlParameters.reset = False # this checks that duplicate penalizaion is not aplied especiall when sim 
                                                      # frequency is high
