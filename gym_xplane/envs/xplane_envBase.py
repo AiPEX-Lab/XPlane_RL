@@ -1,13 +1,12 @@
 import gym
-from scipy.spatial.distance import pdist, squareform
-
 import gym_xplane.xpc as xp
 import gym_xplane.parameters as parameters
 import gym_xplane.space_definition as envSpaces
 import numpy as np
 import itertools
 from time import sleep, clock
-import pyautogui
+
+
 
 class initial:
 
@@ -16,59 +15,58 @@ class initial:
 
 class XplaneEnv(gym.Env):
 
-    
-    
-
-    
 
     def __init__(self, xpHost, xpPort  , timeout):
-        #CLIENT = client
         XplaneEnv.CLIENT = None
-        #XplaneEnv.CLIENT = initial.connect(xpHost = "localhost",xpPort = 49009, timeout = 1000)
-        #print(parameters)
         envSpace = envSpaces.xplane_space()
-        
-        
         self.ControlParameters = parameters.getParameters()
         self.action_space = envSpace._action_space()
         self.observation_space = envSpace._observation_space()
-        #self.episode_steps = 0
         self.ControlParameters.episodeStep =0
-        self.max_episode_steps = 303 # Find out what it does
+        self.max_episode_steps = 1000
         self.statelength = 10
-        self.actions = [0,0,0,0]
+        self.actions = [0,0,0,0,0]
         self.test= False
         try:
             XplaneEnv.CLIENT = initial.connect(xpHost = '127.0.0.1',xpPort = 49009, timeout = 1000)
         except:
             print("connection error. Check your paramters")
         print('I am client', XplaneEnv.CLIENT )
-        
          
     
 
     def close(self):
         XplaneEnv.CLIENT.close()
     
-    def rewardCalcul(self,target_state,xplane_state,sigma=0.45):
+
+    def rewardCalcul(self,sigma=0.45):
         '''
-        input : target state (a list containing the target heading, altitude and runtime)
-                xplane_state(a list containing the aircraft heading , altitude at present timestep, and the running time)
-                Note: if the aircraft crashes then the run time is small, thus the running time captures crashes
-        output: Gaussian kernel similarîty between the two inputs. A value between 0 and 1
-
-
-
-        '''
+        input : 
+        output: 
         
+        '''
+        ### Altitude Reward 
 
-        data = np.array([target_state,xplane_state])
-       
-        pairwise_dists = pdist(data,'cosine')
-        #print('pairwise distance',pairwise_dists)
-        similarity = np.exp(-pairwise_dists ** 2 / sigma ** 2)
+        reward_altitude = np.tanh(1-((2*self.ControlParameters.state14['delta_altitude'])/487.68))
+        
+        ### Heading Reward
 
-        return pairwise_dists
+        if self.ControlParameters.state14['delta_heading'] < 180:
+            reward_heading = 1 - (self.ControlParameters.state14['delta_heading']/90)
+        else:
+            reward_heading = -1 + ((self.ControlParameters.state14['delta_heading'] - 180)/90)
+        
+        ### G_force Reward
+        '''
+        if XplaneEnv.CLIENT.getDREFs(self.ControlParameters.gforce)[0][0] < 1.5:
+            g_reward = 1
+        else:
+            g_reward = np.tanh(1-(XplaneEnv.CLIENT.getDREFs(self.ControlParameters.gforce)[0][0]/7.5))
+        '''
+
+
+        reward = reward_heading + reward_altitude
+        return np.array(reward)
 
 
     def step(self, actions):
@@ -76,52 +74,26 @@ class XplaneEnv(gym.Env):
 
         self.test=False # if true, only test paramters returned. for Model tesing 
         self.ControlParameters.flag = False # for synchronisation of training
-        #self.ControlParameters.episodeReward = 0  # for reward in each episode
-        #self.ControlParameters.totalReward = 0 # reward for final episode aimed at penalizing crash if it crashes finally 
-        
+        checkStep = 0
         reward = 0.
-        perturbationAllowed = [5,15] # pertubation allowed on altitude and heading  $pertubation for altitude was schanged to 5 ft from 3.5
         actions_ = []
         
         j=0  # getting simulaion timing measurement
         
         try:
-            
+        
             #############################################
 
-            # **********************************************
-            ### NOTE:  One could Disable the stability augmentation in XPlane in other to run the simulation without sending pause commands
-            #         In that case comment out the send XplaneEnv.CLIENT.pauseSim(False).
-            #         Previous action is compared to present action to check that after sending an action the action  
-            #         on the controls in the next iteration is same as that which was sent. 
-            #         If this is not true then stability augmentation is acting on the controls too -- this gives very unstable
-            #         and non smooth flight and the agent will never be able to learn due to constant pertubation
-            #         of state by the augmentation system
-            #*************************************************
-
-
-            #############################################
-
-
-            #############################################
-            # chck pevious action is same as the one on the controls
-            print("prevous action",self.actions) # prvious ation
-            print("action on ctrl ...",XplaneEnv.CLIENT.getCTRL()) # action on control surface
-            # if this is not sae then there are unaccounted forcs that could affct ainin
-            # cnage the sleep time ater actio is sent in odr to ensure that training is synchronise
-            # an the actins prined hee are same
-            #############################################
-            
-            #############################################
             i=clock() # get the time up till now
-            #       XplaneEnv.CLIENT.pauseSim(False) # unpause x plane simulation
+            # Pass a dummy value -998 to bypass gear and controll airbrakes
+            actions = np.concatenate((actions[:4],[-998],actions[4:]),axis = 0) 
             XplaneEnv.CLIENT.sendCTRL(actions) # send action
+
             sleep(0.0003)  # sleep for a while so that action is executed
             self.actions = actions  # set the previous action to current action. 
-                                    # This will be compared to action on control in next iteraion
-            #       XplaneEnv.CLIENT.pauseSim(True) # pause simulation so that no other action acts on he aircaft
+
+
             j=clock() # get the time now, i-j is the time at which the simulation is unpaused and action exeuted
-            # fom this point the simulation is paused so that we compute reward and state-action value
             ################################################# 
             
             #################################################
@@ -145,12 +117,9 @@ class XplaneEnv(gym.Env):
 
             ########################################################
             # **********************************************reward parametera**********************
-            # rewardVector : distance to the target . This is distance along the heading and altitude.
-            # this is set to motivate he agent to mov forad in time . Accumulate disance
-            rewardVector = XplaneEnv.CLIENT.getDREF(self.ControlParameters.rewardVariable)[0][0] 
-            headingReward = 150 # the heading target
-            minimumAltitude= 969 # Target Altitude (Meters)
-            minimumRuntime = 210.50 # Target runtime
+            self.headingReward = 213.5 # the heading target for keepHeadingAW1 (headingTrue)
+            self.minimumAltitude= 0 # Target Altitude (Meters) keepHeadings
+            minimumRuntime = 210.50 # Target runtime ????
             # ****************************************************************************************
 
             # *******************************other training parameters ******************
@@ -161,7 +130,10 @@ class XplaneEnv(gym.Env):
             hstab = XplaneEnv.CLIENT.getDREF("sim/flightmodel/controls/hstab1_elv2def")[0][0] # horizontal stability : not use for now
             vstab = XplaneEnv.CLIENT.getDREF("sim/flightmodel/controls/vstab2_rud1def")[0][0] # vertical stability : not used for now
             
-            
+            self.gforce_normal = XplaneEnv.CLIENT.getDREF("sim/flightmodel2/misc/gforce_normal")[0][0] # vertical stability : not used for now
+            self.distance = XplaneEnv.CLIENT.getDREF("sim/cockpit/radios/gps_dme_dist_m")[0][0]
+            self.rew_velocity = XplaneEnv.CLIENT.getDREF("sim/flightmodel/position/groundspeed")[0][0]
+
             # ******************************************************************************
             ################################################################################
 
@@ -179,8 +151,8 @@ class XplaneEnv(gym.Env):
                 self.ControlParameters.state14['velocity_x']= state[6] # local velocity x  OpenGL coordinates
                 self.ControlParameters.state14['velocity_y']= state[7] # local velocity y  OpenGL coordinates              
                 self.ControlParameters.state14['velocity_z']= state[8] # local velocity z   OpenGL coordinates
-                self.ControlParameters.state14['delta_altitude']= abs(state[2] - minimumAltitude) # difference in altitude
-                self.ControlParameters.state14['delta_heading']= abs(state[5] - headingReward) # difference in heading
+                self.ControlParameters.state14['delta_altitude']= abs(state[2] - self.minimumAltitude) # difference in altitude
+                self.ControlParameters.state14['delta_heading']= abs(state[5] - self.headingReward) # difference in heading
                 self.ControlParameters.state14['yaw_rate']= R # The yaw rotation rates (relative to the flight)
                 if self.test :
                     # if testing use append longitude and latitude as  the state variable
@@ -197,73 +169,49 @@ class XplaneEnv(gym.Env):
             ###########################################################################
             # *******************************reward computation ******************
             # parameters required for reward
-            # time is not used here
             timer =  XplaneEnv.CLIENT.getDREF(self.ControlParameters.timer2)[0][0] # running time of simulation
-            target_state = [abs(headingReward),minimumAltitude,0.25]  # taget situation -heading, altitude, and distance 
-            xplane_state = [ abs(state[5]),state[2],rewardVector]  # present situation -heading, altitude, and distance 
-            # if the heading and altitude are within small pertubation set good reward othewise penalize it.
-            if  (abs( abs(state[5])-headingReward)) < perturbationAllowed[0] and (state[2]-minimumAltitude) < perturbationAllowed[1]:
-                reward = self.rewardCalcul(target_state,xplane_state,sigma=0.85)[0]
-                self.ControlParameters.episodeReward = reward
-            else:
-                reward = self.rewardCalcul(target_state,xplane_state)
-                self.ControlParameters.episodeReward = -reward[0]
+            #target_state = [abs(XplaneEnv.CLIENT.getDREFs(self.ControlParameters.on_ground)[0][0])),self.minimumAltitude,0.25]  # taget situation -heading, altitude, and distance 
+            #target_state = XplaneEnv.CLIENT.getDREFs(self.ControlParameters.on_ground)[0][0]
+            #xplane_state = [ abs(state[5]),state[2],rewardVector]  # present situation -heading, altitude, and distance 
+            self.reward = self.rewardCalcul(target_state,xplane_state)
+            self.ControlParameters.episodeReward += self.reward
             self.ControlParameters.episodeStep += 1
+            ### Check Point implementation ###
+            
             #############################################################################
 
             ###########################################################################
             # end of episode setting
             # detect crash and penalize the agênt
             # if crash add -3 otherwose reward ramin same
-            if  self.ControlParameters.state14['altitude'] <= 50:           #Crash detection
-                self.ControlParameters.flag = True # end of episode flag    #episode period from start to crash
+
+            if self.ControlParameters.state14['altitude'] <= 400:
+                self.ControlParameters.flag = True # end of episode flag
                 self.ControlParameters.reset = False # this checks that duplicate penalizaion is not aplied especiall when sim 
                                                      # frequency is high
-                
-                
-                self.ControlParameters.episodeReward -= 2
-                self.ControlParameters.totalReward = self.ControlParameters.episodeReward
-                print("crash", self.ControlParameters.episodeReward)
-                
-                
-                #if self.ControlParameters.episodeStep <= 1.:
-                #    self.ControlParameters.reset = True
-                #    print('reset', self.ControlParameters.reset )
-                #elif not self.ControlParameters.reset:
-                #    self.episodeReward -=  3.
-                #    print("crash", self.ControlParameters.episodeReward)
-                #    self.ControlParameters.totalReward = self.ControlParameters.episodeReward
-                #    self.input_controller.tap_key(KeyboardKey.KEY_EQUALS, duration = .2)
-                #    self.ControlParameters.totalReward -= 1
-                #    pyautogui.press('=')
-                #    pyautogui.press('-')
-                #else: 
-                #    pass
-            # set flag to true if maximum steps has been achieved. Thus episode is finished.
-            # set the maximum episode step to the value you want    
-            #Doesn't make sense kills episode if plane could stay up more than treshold# elif self.ControlParameters.episodeStep > self.max_episode_steps:
-            #    self.ControlParameters.flag = True
-            #    self.ControlParameters.totalReward  = self.ControlParameters.episodeReward
-            ###########################################################################
     
+            elif self.ControlParameters.episodeStep > self.max_episode_steps:
+                self.ControlParameters.flag = True
+
+            ###########################################################################
+
             ###########################################################################
             # reset the episode paameters if Flag is true. (since episode has terminated)
             # flag is synchonised with XPlane enviroment
-            if self.ControlParameters.flag == True:
-                reward = self.ControlParameters.totalReward 
-                print(reward, 'reward' , self.ControlParameters.totalReward, self.ControlParameters.episodeReward )
+            if self.ControlParameters.flag:
+                print('reward',self.reward , 'episodeReward', self.ControlParameters.episodeReward, 'episodeSteps:', self.ControlParameters.episodeStep)
                 #self.ControlParameters.flag = True
-                        #self.ControlParameters.totalReward=0
+                self.ControlParameters.episodeReward=0.
                 self.ControlParameters.episodeStep = 0
-                #self.episode_steps=0
-                self.actions = [0,0,0,0]
-                pyautogui.press('=')
-                pyautogui.press('-') 
+                self.ControlParameters.episode_steps=0
+                self.actions = [0,0,0,0,0] 
+                self.ControlParameters.flag = False
+                self.ControlParameters.reset = False
             else:
                 reward = self.ControlParameters.episodeReward
             ###########################################################################
+        
             
-
         except:
             reward = self.ControlParameters.episodeReward
             self.ControlParameters.flag = False
@@ -273,17 +221,12 @@ class XplaneEnv(gym.Env):
                 state14 = state
             else:
                 state14 = [i for i in self.ControlParameters.state14.values()]
-        #print(reward, 'reward' , self.ControlParameters.totalReward, self.ControlParameters.episodeReward )
+        
         q=clock() # end of loop timer 
-        #print("pause estimate", q-j)
-        print(self.ControlParameters.state14['altitude'])
-        print(self.ControlParameters.state14['delta_heading'])
+        #rint("pause estimate", q-j)
+        print("Reward:", self.reward, "delta_altitude:", self.ControlParameters.state14['delta_altitude'], "delta_heading:", self.ControlParameters.state14['delta_heading'], "gforce", XplaneEnv.CLIENT.getDREFs(self.ControlParameters.gforce)[0][0], "crashed?", XplaneEnv.CLIENT.getDREFs(self.ControlParameters.explode)[0][0])
         sleep(0.07)
-        return  np.array(state14),reward,self.ControlParameters.flag,self._get_info() #self.ControlParameters.state14
-
-
-   
-
+        return  state14,reward,self.ControlParameters.flag,self._get_info() #self.ControlParameters.state14
   
 
     def _get_info(self):
