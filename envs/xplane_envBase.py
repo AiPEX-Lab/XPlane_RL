@@ -47,7 +47,7 @@ class XplaneEnv(gym.Env):
         '''
         ### Altitude Reward 
 
-        reward_altitude = np.tanh(1-((2*self.ControlParameters.state14['delta_altitude'])/487.68))
+        reward_altitude = np.tanh(1-((2*self.ControlParameters.state14['delta_altitude'])/1524))
         
         ### Heading Reward
 
@@ -75,7 +75,7 @@ class XplaneEnv(gym.Env):
         self.test=False # if true, only test paramters returned. for Model tesing 
         self.ControlParameters.flag = False # for synchronisation of training
         checkStep = 0
-        reward = 0.
+        self.reward = 0.
         actions_ = []
         
         j=0  # getting simulaion timing measurement
@@ -118,7 +118,7 @@ class XplaneEnv(gym.Env):
             ########################################################
             # **********************************************reward parametera**********************
             self.headingReward = 213.5 # the heading target for keepHeadingAW1 (headingTrue)
-            self.minimumAltitude= 0 # Target Altitude (Meters) keepHeadings
+            self.minimumAltitude= 1524 # Target Altitude (Meters) keepHeadings
             minimumRuntime = 210.50 # Target runtime ????
             # ****************************************************************************************
 
@@ -145,6 +145,7 @@ class XplaneEnv(gym.Env):
 
                 self.ControlParameters.state14['roll_rate'] = P #  The roll rotation rates (relative to the flight)
                 self.ControlParameters.state14['pitch_rate']= Q    # The pitch rotation rates (relative to the flight)
+                self.ControlParameters.state14['yaw_rate']= R # The yaw rotation rates (relative to the flight)
                 self.ControlParameters.state14['altitude']= state[2] #  Altitude 
                 self.ControlParameters.state14['Pitch']= state[3] # pitch 
                 self.ControlParameters.state14['Roll']= state[4]  # roll
@@ -153,7 +154,6 @@ class XplaneEnv(gym.Env):
                 self.ControlParameters.state14['velocity_z']= state[8] # local velocity z   OpenGL coordinates
                 self.ControlParameters.state14['delta_altitude']= abs(state[2] - self.minimumAltitude) # difference in altitude
                 self.ControlParameters.state14['delta_heading']= abs(state[5] - self.headingReward) # difference in heading
-                self.ControlParameters.state14['yaw_rate']= R # The yaw rotation rates (relative to the flight)
                 if self.test :
                     # if testing use append longitude and latitude as  the state variable
                     # The intuition for this is that during testing we need lat and long to be able to project the position of the
@@ -173,7 +173,7 @@ class XplaneEnv(gym.Env):
             #target_state = [abs(XplaneEnv.CLIENT.getDREFs(self.ControlParameters.on_ground)[0][0])),self.minimumAltitude,0.25]  # taget situation -heading, altitude, and distance 
             #target_state = XplaneEnv.CLIENT.getDREFs(self.ControlParameters.on_ground)[0][0]
             #xplane_state = [ abs(state[5]),state[2],rewardVector]  # present situation -heading, altitude, and distance 
-            self.reward = self.rewardCalcul(target_state,xplane_state)
+            self.reward = self.rewardCalcul()
             self.ControlParameters.episodeReward += self.reward
             self.ControlParameters.episodeStep += 1
             ### Check Point implementation ###
@@ -184,12 +184,9 @@ class XplaneEnv(gym.Env):
             # end of episode setting
             # detect crash and penalize the agênt
             # if crash add -3 otherwose reward ramin same
-
-            if self.ControlParameters.state14['altitude'] <= 400:
+            print(self.ControlParameters.state14['altitude'])
+            if self.ControlParameters.state14['altitude'] <= 880.2760009765625:
                 self.ControlParameters.flag = True # end of episode flag
-                self.ControlParameters.reset = False # this checks that duplicate penalizaion is not aplied especiall when sim 
-                                                     # frequency is high
-    
             elif self.ControlParameters.episodeStep > self.max_episode_steps:
                 self.ControlParameters.flag = True
 
@@ -201,12 +198,9 @@ class XplaneEnv(gym.Env):
             if self.ControlParameters.flag:
                 print('reward',self.reward , 'episodeReward', self.ControlParameters.episodeReward, 'episodeSteps:', self.ControlParameters.episodeStep)
                 #self.ControlParameters.flag = True
-                self.ControlParameters.episodeReward=0.
-                self.ControlParameters.episodeStep = 0
-                self.ControlParameters.episode_steps=0
-                self.actions = [0,0,0,0,0] 
-                self.ControlParameters.flag = False
-                self.ControlParameters.reset = False
+                print("Flag")
+                self.reset()
+
             else:
                 reward = self.ControlParameters.episodeReward
             ###########################################################################
@@ -224,9 +218,11 @@ class XplaneEnv(gym.Env):
         
         q=clock() # end of loop timer 
         #rint("pause estimate", q-j)
-        print("Reward:", self.reward, "delta_altitude:", self.ControlParameters.state14['delta_altitude'], "delta_heading:", self.ControlParameters.state14['delta_heading'], "gforce", XplaneEnv.CLIENT.getDREFs(self.ControlParameters.gforce)[0][0], "crashed?", XplaneEnv.CLIENT.getDREFs(self.ControlParameters.explode)[0][0])
-        sleep(0.07)
-        return  state14,reward,self.ControlParameters.flag,self._get_info() #self.ControlParameters.state14
+        print("Reward:", self.reward, "delta_altitude:", self.ControlParameters.state14['delta_altitude'], "delta_heading:", self.ControlParameters.state14['delta_heading'],"Episode:",self.ControlParameters.episodeStep)
+        #print(self.ControlParameters.state14)
+        sleep(0.1)
+
+        return  state14,self.reward,self.ControlParameters.flag,{} #self._get_info() #self.ControlParameters.state14
   
 
     def _get_info(self):
@@ -243,20 +239,15 @@ class XplaneEnv(gym.Env):
         Returns:
             initial state of reset environment.
         """
+        print("reset")
         self.actions = [0,0,0,0] 
         self.ControlParameters.stateAircraftPosition = []
         self.ControlParameters.stateVariableValue = []
         self.ControlParameters.episodeReward  = 0.
         self.ControlParameters.totalReward  = 0.
-        self.ControlParameters.flag = False
-        #self.episode_steps = 0
+        #self.ControlParameters.flag = False
         self.ControlParameters.episodeStep = 0
         self.ControlParameters.state14 = dict.fromkeys(self.ControlParameters.state14.keys(),0)
-        #print(self.ControlParameters.state14)
-        #stater  = [0,4]
-        #state = {'value':  np.array([stater[0], stater[1]]).shape(2,)}
-        #print(state)
-        #val = 1
         state = np.zeros(11)
         
         return state # self.ControlParameters.state14
