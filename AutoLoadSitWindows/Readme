@@ -1,2 +1,5 @@
 AutoLoadSit is a plugin that will automatically load a situation file after the plane has fallen underneath a certain altitude.
 Additionally, it will automatically put the simulation in third-person view.
+
+To change any code, please open up the vcxproj file in Microsoft Visual Studio code and edit the cpp file. Afterwards, build it
+to make a xlp file to make the plugin.
