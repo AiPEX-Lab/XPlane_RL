@@ -7,14 +7,12 @@ import itertools
 from time import sleep, clock
 import math
 
-
 class initial:
-
+    ### Calls xpc.py to set connection using XplaneConnect plugin
     def connect( xpHost, xpPort , timeout ):
             return xp.XPlaneConnect(xpHost, xpPort , timeout )
 
 class XplaneEnv(gym.Env):
-
 
     def __init__(self, xpHost, xpPort  , timeout):
         XplaneEnv.CLIENT = None
@@ -23,7 +21,7 @@ class XplaneEnv(gym.Env):
         self.action_space = envSpace._action_space()
         self.observation_space = envSpace._observation_space()
         self.ControlParameters.episodeStep =0
-        self.max_episode_steps = 1000
+        self.max_episode_steps = 1500
         self.statelength = 10
         self.actions = [0,0,0,0,0]
         self.test= False
@@ -32,7 +30,6 @@ class XplaneEnv(gym.Env):
         except:
             print("connection error. Check your paramters")
         print('I am client', XplaneEnv.CLIENT )
-         
     
 
     def close(self):
@@ -43,40 +40,42 @@ class XplaneEnv(gym.Env):
         '''
         input : 
         output: 
-        
         '''
-        ### Altitude Reward 
-
-        reward_altitude = np.tanh(2-((2*self.ControlParameters.state14['delta_altitude'])/1524))
+        ### G_force Reward
+        '''
+        if XplaneEnv.CLIENT.getDREFs(self.ControlParameters.gforce)[0][0] < 1.5:
+            g_reward = 1
+        else:
+            g_reward = np.tanh(1-(XplaneEnv.CLIENT.getDREFs(self.ControlParameters.gforce)[0][0]/7.5))
+        '''
+        ### Altitude Reward
+        reward_velocity = 0 
+        reward_altitude = np.tanh(1-((1*self.ControlParameters.state14['delta_altitude'])/245))
         
         ### Heading Reward
-
         if self.ControlParameters.state14['delta_heading'] < 180:
             reward_heading = 1 - (self.ControlParameters.state14['delta_heading']/90)
         else:
             reward_heading = -1 + ((self.ControlParameters.state14['delta_heading'] - 180)/90)
         
-        ### G_force Reward
-        
-        if XplaneEnv.CLIENT.getDREFs(self.ControlParameters.gforce)[0][0] < 1.5:
-            g_reward = 1
-        else:
-            g_reward = np.tanh(1-(XplaneEnv.CLIENT.getDREFs(self.ControlParameters.gforce)[0][0]/7.5))
-        
         ### Stability Reward 
         sum_rates = abs(self.P) + abs(self.Q)
-        square_sum = math.sqrt(self.P**2 + self.Q**2)
-        reward_stability = np.tanh(1 - (sum_rates)/50)
-        reward = reward_heading + reward_altitude + reward_stability
+        reward_stability = np.tanh(2 - 2 * (sum_rates)/50)
+
+        ### Speed Reward 
+        if self.ControlParameters.state14['delta_altitude'] < 80:
+            reward_velocity = np.tanh(1 - self.raw_velocity/50)
+
+        ### Total reaward 
+        reward = reward_heading + reward_altitude + reward_stability + (2 * reward_velocity)
+        #print(reward_heading, reward_altitude, reward_stability, reward_velocity)
         return np.array(reward)
 
 
     def step(self, actions):
-     
 
         self.test=False # if true, only test paramters returned. for Model tesing 
         self.ControlParameters.flag = False # for synchronisation of training
-        checkStep = 0
         self.reward = 0.
         actions_ = []
         
@@ -85,7 +84,6 @@ class XplaneEnv(gym.Env):
         try:
         
             #############################################
-
             i=clock() # get the time up till now
             # Pass a dummy value -998 to bypass gear and controll airbrakes
             actions = np.concatenate((actions[:4],[-998],actions[4:]),axis = 0) 
@@ -105,11 +103,11 @@ class XplaneEnv(gym.Env):
             ################################################
             
             #################################################
-            # get the state variabls here . The parameter file has all the required variables
+            # get the state variables here . The parameter file has all the required variables
             # we only need to call the client interface and get parameters defined as stateVariable
             # in parameter file as below
             stateVariableTemp = XplaneEnv.CLIENT.getDREFs(self.ControlParameters.stateVariable) 
-            # the client interface automaically gets the position paameters
+            # the client interface automaically gets the position parameters
             self.ControlParameters.stateAircraftPosition = list(XplaneEnv.CLIENT.getPOSI());
             # Remove brackets from state variable and store in the dictionary
             self.ControlParameters.stateVariableValue = [i[0] for i in stateVariableTemp]
@@ -119,9 +117,9 @@ class XplaneEnv(gym.Env):
 
             ########################################################
             # **********************************************reward parametera**********************
-            self.headingReward = 213.5 # the heading target for keepHeadingAW1 (headingTrue)
-            self.minimumAltitude= 1524 # Target Altitude (Meters) keepHeadings
-            minimumRuntime = 210.50 # Target runtime ????
+            #self.headingReward = 213.5 # the heading target (headingTrue)
+            self.headingReward = 146.76 #Landing
+            self.minimumAltitude= 0 # Target Altitude (Meters) 
             # ****************************************************************************************
 
             # *******************************other training parameters ******************
@@ -133,8 +131,13 @@ class XplaneEnv(gym.Env):
             vstab = XplaneEnv.CLIENT.getDREF("sim/flightmodel/controls/vstab2_rud1def")[0][0] # vertical stability : not used for now
             
             self.gforce_normal = XplaneEnv.CLIENT.getDREF("sim/flightmodel2/misc/gforce_normal")[0][0] # vertical stability : not used for now
+            self.gforce_axil = XplaneEnv.CLIENT.getDREF("sim/flightmodel2/misc/gforce_axil")[0][0] # vertical stability : not used for now
+            self.gforce_side = XplaneEnv.CLIENT.getDREF("sim/flightmodel2/misc/gforce_side")[0][0] # vertical stability : not used for now
+            self.gforce_overG = XplaneEnv.CLIENT.getDREF("sim/flightmodel2/misc/has_crashed")[0][0] # vertical stability : not used for now
             self.distance = XplaneEnv.CLIENT.getDREF("sim/cockpit/radios/gps_dme_dist_m")[0][0]
-            self.rew_velocity = XplaneEnv.CLIENT.getDREF("sim/flightmodel/position/groundspeed")[0][0]
+            self.raw_velocity = XplaneEnv.CLIENT.getDREF("sim/flightmodel/position/groundspeed")[0][0]
+            self.ground_contact = XplaneEnv.CLIENT.getDREF("sim/flightmodel2/gear/on_ground")[0][0]
+            self.plugAlt = XplaneEnv.CLIENT.getDREF("sim/flightmodel/position/y_agl")[0][0]
 
             # ******************************************************************************
             ################################################################################
@@ -170,11 +173,7 @@ class XplaneEnv(gym.Env):
             
             ###########################################################################
             # *******************************reward computation ******************
-            # parameters required for reward
             timer =  XplaneEnv.CLIENT.getDREF(self.ControlParameters.timer2)[0][0] # running time of simulation
-            #target_state = [abs(XplaneEnv.CLIENT.getDREFs(self.ControlParameters.on_ground)[0][0])),self.minimumAltitude,0.25]  # taget situation -heading, altitude, and distance 
-            #target_state = XplaneEnv.CLIENT.getDREFs(self.ControlParameters.on_ground)[0][0]
-            #xplane_state = [ abs(state[5]),state[2],rewardVector]  # present situation -heading, altitude, and distance 
             self.reward = self.rewardCalcul()
             self.ControlParameters.episodeReward += self.reward
             self.ControlParameters.episodeStep += 1
@@ -184,11 +183,23 @@ class XplaneEnv(gym.Env):
 
             ###########################################################################
             # end of episode setting
-            # detect crash and penalize the agênt
-            # if crash add -3 otherwose reward ramin same
 
+            ''' #KeepHeading Reset
             if self.ControlParameters.state14['altitude'] <= 880.2760009765625:
                 self.ControlParameters.flag = True # end of episode flag
+            '''
+            # landing Reset 
+            if abs(self.gforce_normal) >= 5 or abs(self.gforce_side) >= 5 or abs(self.gforce_axil) >= 5 or self.gforce_overG == 1:
+                self.ControlParameters.flag = True
+                self.reward -= 25 # end of episode flag
+                self.ControlParameters.episodeStep = 0
+
+            elif (self.raw_velocity <= 5 and self.plugAlt <= 5 or self.ground_contact == 1):
+                print("landed")
+                landed = (self.max_episode_steps - self.episodeSteps)
+                self.reward += landed
+                self.ControlParameters.flag = True
+
             elif self.ControlParameters.episodeStep > self.max_episode_steps:
                 self.ControlParameters.flag = True
 
@@ -196,11 +207,9 @@ class XplaneEnv(gym.Env):
 
             ###########################################################################
             # reset the episode paameters if Flag is true. (since episode has terminated)
-            # flag is synchonised with XPlane enviroment
+            # flag marks end of episode
             if self.ControlParameters.flag:
                 print('reward',self.reward , 'episodeReward', self.ControlParameters.episodeReward, 'episodeSteps:', self.ControlParameters.episodeStep)
-                #self.ControlParameters.flag = True
-                print("Flag")
                 self.reset()
 
             else:
@@ -221,6 +230,7 @@ class XplaneEnv(gym.Env):
         q=clock() # end of loop timer 
         #rint("pause estimate", q-j)
         print("Reward:", self.reward, "delta_altitude:", self.ControlParameters.state14['delta_altitude'], "delta_heading:", self.ControlParameters.state14['delta_heading'],"Episode:",self.ControlParameters.episodeStep)
+        #print("G_normal:",self.gforce_normal,"G_axil:",self.gforce_axil,"G_side:",self.gforce_side,"OverG:",self.gforce_overG)
         #print(self.ControlParameters.state14)
         sleep(0.1)
 
