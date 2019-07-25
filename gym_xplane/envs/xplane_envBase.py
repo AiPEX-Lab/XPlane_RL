@@ -21,7 +21,8 @@ class XplaneEnv(gym.Env):
         self.action_space = envSpace._action_space()
         self.observation_space = envSpace._observation_space()
         self.ControlParameters.episodeStep =0
-        self.max_episode_steps = 1500
+        self.max_episode_steps = 500
+        self.max_sim_time = 62.35
         self.statelength = 10
         self.actions = [0,0,0,0,0]
         self.test= False
@@ -63,11 +64,11 @@ class XplaneEnv(gym.Env):
         reward_stability = np.tanh(2 - 2 * (sum_rates)/50)
 
         ### Speed Reward 
-        if self.ControlParameters.state14['delta_altitude'] < 80:
+        if self.ControlParameters.state14['delta_altitude'] < 60:
             reward_velocity = np.tanh(1 - self.raw_velocity/50)
-
+        print(reward_stability)
         ### Total reaward 
-        reward = reward_heading + reward_altitude + reward_stability + (2 * reward_velocity)
+        reward = reward_heading + (2 * reward_altitude) + reward_stability + (2 * reward_velocity) - 1.5 # time based punishment
         #print(reward_heading, reward_altitude, reward_stability, reward_velocity)
         return np.array(reward)
 
@@ -118,7 +119,7 @@ class XplaneEnv(gym.Env):
             ########################################################
             # **********************************************reward parametera**********************
             #self.headingReward = 213.5 # the heading target (headingTrue)
-            self.headingReward = 146.76 #Landing
+            self.headingReward = 143.76 #Landing
             self.minimumAltitude= 0 # Target Altitude (Meters) 
             # ****************************************************************************************
 
@@ -138,7 +139,7 @@ class XplaneEnv(gym.Env):
             self.raw_velocity = XplaneEnv.CLIENT.getDREF("sim/flightmodel/position/groundspeed")[0][0]
             self.ground_contact = XplaneEnv.CLIENT.getDREF("sim/flightmodel2/gear/on_ground")[0][0]
             self.plugAlt = XplaneEnv.CLIENT.getDREF("sim/flightmodel/position/y_agl")[0][0]
-
+            self.simtime = XplaneEnv.CLIENT.getDREF("sim/time/total_running_time_sec")[0][0]
             # ******************************************************************************
             ################################################################################
 
@@ -188,19 +189,20 @@ class XplaneEnv(gym.Env):
             if self.ControlParameters.state14['altitude'] <= 880.2760009765625:
                 self.ControlParameters.flag = True # end of episode flag
             '''
+
             # landing Reset 
             if abs(self.gforce_normal) >= 5 or abs(self.gforce_side) >= 5 or abs(self.gforce_axil) >= 5 or self.gforce_overG == 1:
                 self.ControlParameters.flag = True
                 self.reward -= 25 # end of episode flag
                 self.ControlParameters.episodeStep = 0
 
-            elif (self.raw_velocity <= 5 and self.plugAlt <= 5 or self.ground_contact == 1):
+            elif (self.raw_velocity <= 5 and self.plugAlt <= 5): #or self.ground_contact == 1):
                 print("landed")
-                landed = (self.max_episode_steps - self.episodeSteps)
+                landed = 50 * (self.max_sim_time - self.simtime)
                 self.reward += landed
                 self.ControlParameters.flag = True
 
-            elif self.ControlParameters.episodeStep > self.max_episode_steps:
+            elif self.simtime >= self.max_sim_time:
                 self.ControlParameters.flag = True
 
             ###########################################################################
@@ -209,6 +211,7 @@ class XplaneEnv(gym.Env):
             # reset the episode paameters if Flag is true. (since episode has terminated)
             # flag marks end of episode
             if self.ControlParameters.flag:
+                self.ControlParameters.episodeStep = 0
                 print('reward',self.reward , 'episodeReward', self.ControlParameters.episodeReward, 'episodeSteps:', self.ControlParameters.episodeStep)
                 self.reset()
 
