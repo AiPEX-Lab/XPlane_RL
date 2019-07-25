@@ -8,7 +8,7 @@ gym_xplane is an  environment bundle for OpenAI Gym. It allows an agent to inter
 ##### Installation
 ---------
 
-1. Install [OpenAI Gym](https://github.com/openai/gym) and its dependencies.
+1. Install [Stable-baselines Gym](https://github.com/hill-a/stable-baselines) and its dependencies.
 2. Install the package itself:
     ```
     git clone  PASTE HTTPS OR SSH HERE // if you have not cloned the repo before
@@ -20,9 +20,9 @@ gym_xplane is an  environment bundle for OpenAI Gym. It allows an agent to inter
 --------------------
 
 1. Start Xplane 
-2. Change the directory to examples folder:
+2. Change the directory to gym_xplane:
    ```
-    cd ../examples
+    cd ../gym_xplane
     ```
 2. Run examples:
 
@@ -30,8 +30,16 @@ gym_xplane is an  environment bundle for OpenAI Gym. It allows an agent to inter
     sudo  /path/to/anaconda/python3.6  random_agent.py 
     ```
    
-    
+### To Load Tensorboard
+   tensorboard -- logdir 'path to file'
+   
+### To Load Model
+   Paste the name and directory of the model into XPilot.py
+   Run X Plane 
+   Run XPilot.py
    
 ### TO DO
-   Update reward function. (You could define your reward function for your custom scenario too)
+   Look into GLX accelerated rendering in nvidi-docker
+   Train the model with current reward function
+   (You could define your reward function for your custom scenario too)
     
