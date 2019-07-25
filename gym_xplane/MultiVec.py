@@ -13,11 +13,6 @@ from stable_baselines.bench import Monitor
 
 def callback(_locals, _globals):
 
-    """
-    Callback called at each step (for DQN an others) or after n steps (see ACER or PPO2)
-    :param _locals: (dict)
-    :param _globals: (dict)
-    """
     global n_steps
 
     # Print stats every 1000 calls
@@ -62,19 +57,20 @@ if __name__ == '__main__':
      #tensorboard --logdir 
 
 
-
-    num_cpu = 1
+    n_steps = 0
+    num_cpu = 4
 
     env = SubprocVecEnv([make_env(env_id, 49009 + i, i) for i in range(num_cpu)])  # The algorithms require a vectorized environment to run
    
     
     
-    model = PPO2(MlpPolicy, env, verbose=1, tensorboard_log = log_dir)
-    model.learn(total_timesteps=1000000, callback = callback)
+    #model = PPO2(MlpPolicy, env, verbose=1, tensorboard_log = log_dir)
+    model = PPO2.load('0_Throttle2.pkl', env, tensorboard_log = log_dir)
+    model.learn(total_timesteps=5000000, callback = callback)
 
     ##### Final Save 
 
-    model.save("landing_Becn1")
+    model.save("PPO2_landingAW2")
     #PPO2('MlpPolicy', env, verbose=1).learn(1000)
    
 

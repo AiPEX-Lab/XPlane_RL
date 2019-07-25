@@ -23,10 +23,10 @@ n_cpu = 1
 
 env = DummyVecEnv([lambda: env])  # The algorithms require a vectorized environment to run
 
-model = PPO2.load('X_Pilot_run3')
+model = PPO2.load('RunStable')
 
 obs = env.reset()
-for i in range(5000):
+for i in range(50000):
     action, _states = model.predict(obs)
     obs, rewards, dones, info = env.step(action)
     env.render()
